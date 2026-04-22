@@ -45,7 +45,7 @@ For the Next.js frontend service:
 ```env
 NEXT_PUBLIC_API_BASE=https://your-api-service-url
 GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
 Never put a real Gemini API key in frontend code.
@@ -76,3 +76,25 @@ npm install
 npm run dev -- -p 3000
 npm run build
 ```
+
+## Cloud Run deployment
+
+Service:
+
+```text
+muwahid-web
+```
+
+Region:
+
+```text
+asia-southeast2
+```
+
+Public URL:
+
+```text
+https://muwahid-web-694458218270.asia-southeast2.run.app
+```
+
+The deployed service reads `GEMINI_API_KEY` from Secret Manager secret `gemini-api-key`.
