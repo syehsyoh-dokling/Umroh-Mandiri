@@ -1,0 +1,54 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [referral, setReferral] = useState("0000");
+
+  useEffect(() => {
+    const ref =
+      searchParams.get("ref") ||
+      searchParams.get("reff") ||
+      localStorage.getItem("referral") ||
+      "0000";
+
+    localStorage.setItem("referral", ref);
+    setReferral(ref);
+  }, [searchParams]);
+
+  return (
+    <main className="mw-page mw-login-page">
+      <section className="mw-section-lg mw-login-shell">
+        <div className="mw-container">
+          <div className="mw-register-placeholder">
+            <div className="mw-badge">
+              <span className="icon">📝</span>
+              <span>Registrasi Pengguna MUWAHID</span>
+            </div>
+
+            <h1 className="mw-title">Halaman Register Sedang Disiapkan</h1>
+            <p className="mw-desc">
+              Referral yang terbawa: <strong>{referral}</strong>
+            </p>
+            <p className="mw-desc">
+              Stub ini dibuat agar tombol daftar dari login langsung aktif. Tahap berikutnya,
+              form registrasi lengkap bisa diisi dengan alur wilayah, IP, lokasi, dan penyimpanan backend.
+            </p>
+
+            <div className="mw-register-actions">
+              <button className="mw-btn mw-btn-primary" onClick={() => router.push("/login")}>
+                Kembali ke Login
+              </button>
+              <button className="mw-btn mw-btn-ghost" onClick={() => router.push("/")}>
+                Kembali ke Beranda
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

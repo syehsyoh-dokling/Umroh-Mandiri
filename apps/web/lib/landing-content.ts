@@ -1,0 +1,171 @@
+export type LandingFeature = {
+  key: string;
+  title: string;
+  sub: string;
+  summary: string;
+  ctaLabel: string;
+  paragraphs: string[];
+};
+
+export type LandingContent = {
+  hero: {
+    badge: string;
+    welcome: string;
+    brand: string;
+    description: string;
+  };
+  promo: {
+    title: string;
+    description: string;
+    primaryLabel: string;
+    secondaryLabel: string;
+  };
+  featureSection: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    joinLabel: string;
+  };
+  features: LandingFeature[];
+  why: {
+    title: string;
+    paragraphs: string[];
+  };
+};
+
+export const defaultLandingContent: LandingContent = {
+  hero: {
+    badge: "Asisten Umroh Digital",
+    welcome: "Selamat Datang Tamu Allah",
+    brand: "MUWAHID",
+    description: "Asisten virtual yang siap membantu dan menjadikan umroh Anda semudah pulang kampung.",
+  },
+  promo: {
+    title: "Promo Akhir Tahun",
+    description:
+      "Hanya dengan dana 6.000.000 Rupiah Anda sudah bisa langsung melaksanakan umroh. Bonus gratis koper dan cashback pengganti biaya vaksin tersedia untuk periode promo ini.",
+    primaryLabel: "Lihat Paket",
+    secondaryLabel: "Nanti dulu",
+  },
+  featureSection: {
+    eyebrow: "Umroh Mandiri",
+    title: "Semua informasi yang Anda butuhkan untuk merencanakan umroh secara mandiri tersedia di sini.",
+    description: "Bahkan jika ingin memilih agen travel pun semua tersedia di MUWAHID.",
+    joinLabel: "Mau bergabung dengan mereka yang akan berangkat umroh secara mandiri? Lihat di sini",
+  },
+  features: [
+    {
+      key: "bandingkan-harga",
+      title: "Bandingkan Harga (Antar Travel)",
+      sub: "Antar Travel",
+      summary:
+        "Bandingkan harga paket umroh dari berbagai travel resmi, filter kota keberangkatan, maskapai, hotel, dan fasilitas dalam satu halaman.",
+      ctaLabel: "Login untuk bandingkan paket",
+      paragraphs: [
+        "Melalui MUWAHID, Anda bisa membandingkan harga paket umroh dari berbagai travel umroh resmi PPIU berizin Kemenag dan partner maskapai yang relevan secara cepat dan lebih transparan. Filter kota keberangkatan, maskapai, hotel, tipe kamar, meal plan, dan fasilitas lain dikumpulkan dalam satu tampilan agar calon jamaah tidak perlu membuka banyak situs.",
+        "Dalam satu halaman Anda bisa melihat harga umroh per orang atau per keluarga, pilihan paket 9, 12, atau 14 hari, opsi hotel dekat Masjidil Haram dan Masjid Nabawi, serta itinerary dasar untuk memudahkan perbandingan. Hasilnya diarahkan agar pengguna lebih cepat menemukan opsi termurah, terdekat ke Haram, atau paling sesuai dengan kebutuhan keluarga.",
+        "Komponen biaya juga bisa ditampilkan lebih jelas, termasuk tiket, hotel, makanan, transport, handling, dan fasilitas tambahan. Dengan alur ini, MUWAHID membantu jamaah mengambil keputusan dengan lebih sadar tanpa tenggelam dalam detail yang tidak penting.",
+      ],
+    },
+    {
+      key: "kalkulator-umroh",
+      title: "Kalkulator Umroh",
+      sub: "Umroh Mandiri",
+      summary:
+        "Simulasikan estimasi biaya umroh per orang atau per keluarga, lengkap dengan skenario termurah, durasi, dan itinerary.",
+      ctaLabel: "Login untuk hitung biaya",
+      paragraphs: [
+        "Kalkulator umroh MUWAHID membantu jamaah yang ingin merencanakan perjalanan mandiri tanpa harus langsung mengambil paket yang sudah disiapkan travel. Pengguna dapat mensimulasikan biaya berdasarkan kota keberangkatan, maskapai, durasi, kelas hotel, jumlah jamaah, serta pola perjalanan yang diinginkan.",
+        "Sistem juga membantu memahami beda durasi total dan waktu efektif ibadah di Makkah maupun Madinah. Anda bisa menyusun simulasi biaya yang lebih realistis, lengkap dengan SAR ke rupiah, transport lokal, makan, dan biaya penunjang lain agar gambaran anggaran menjadi lebih presisi.",
+        "Fitur ini juga berguna untuk membandingkan dua sampai empat skenario perjalanan sekaligus. Dengan begitu, calon jamaah bisa memilih jadwal termurah, durasi paling efisien, atau paket komponen yang paling cocok dengan ritme ibadah dan kondisi keluarga.",
+      ],
+    },
+    {
+      key: "visa-administrasi",
+      title: "Visa & Administrasi",
+      sub: "Lengkap & Mudah",
+      summary:
+        "Panduan lengkap visa umroh, visa ziarah, stopover, tourist eVisa, vaksin, asuransi, dan dokumen perjalanan.",
+      ctaLabel: "Login untuk cek administrasi",
+      paragraphs: [
+        "Ada beberapa jenis visa yang dapat digunakan untuk masuk ke Arab Saudi, dan masing-masing memiliki kelebihan serta batasan berbeda sesuai kebutuhan perjalanan. Jika tujuan utama adalah ibadah umroh, pengguna bisa mempelajari opsi visa umroh, visa ziarah keluarga, Saudi Stopover Visa, visa transit, hingga tourist eVisa dalam satu alur yang lebih mudah dipahami.",
+        "MUWAHID juga menyediakan panduan persyaratan dasar seperti paspor, bukti akomodasi, tiket, vaksin, asuransi perjalanan, serta estimasi waktu proses dan rincian biaya. Dengan ringkasan ini, calon jamaah tidak perlu lagi meraba-raba proses administrasi dari banyak sumber yang membingungkan.",
+        "Layanan administrasi dilengkapi checklist keberangkatan dan panduan praktis agar dokumen tetap rapi, aman, dan sesuai regulasi terbaru. Tujuannya bukan hanya membuat pengguna tahu syaratnya, tetapi juga merasa tenang saat mempersiapkan keberangkatan.",
+      ],
+    },
+    {
+      key: "panduan-doa",
+      title: "Panduan Rukun, Tata Cara & Doa (Video Talkin)",
+      sub: "Video Talkin",
+      summary:
+        "Panduan doa langkah demi langkah dari keberangkatan hingga akhir ibadah, dilengkapi format yang mudah diikuti.",
+      ctaLabel: "Login untuk buka panduan doa",
+      paragraphs: [
+        "Video talkin doa di MUWAHID dirancang untuk membantu jamaah yang belum hafal doa secara lancar dari awal perjalanan hingga akhir ibadah umroh. Materi mencakup doa keberangkatan, doa di miqat, talbiyah, thawaf, sa'i, hingga tahallul dengan susunan yang lebih mudah diikuti.",
+        "Konten doa tidak hanya berupa teks, tetapi juga diarahkan untuk ramah pemula, lansia, dan pengguna yang ingin belajar secara bertahap. Jika diperlukan, materi bisa diperluas ke audio, PDF, dan checklist perlengkapan ibadah agar pengguna memiliki pegangan praktis selama perjalanan.",
+        "Dengan struktur seperti ini, panduan bukan sekadar kumpulan bacaan, melainkan asisten digital yang membantu jamaah menjaga rasa tenang dan khusyuk selama ibadah berlangsung.",
+      ],
+    },
+    {
+      key: "umroh-ramadhan",
+      title: "Umroh + I'tikaf Ramadhan",
+      sub: "Ramadhan",
+      summary:
+        "Rencanakan umroh Ramadhan plus i'tikaf, termasuk panduan zona, titik prioritas, dan kebutuhan jamaah.",
+      ctaLabel: "Login untuk rencanakan Ramadhan",
+      paragraphs: [
+        "MUWAHID membantu Anda merencanakan umroh Ramadhan plus i'tikaf dengan panduan zona i'tikaf, toilet terdekat, pintu prioritas, titik air zamzam, dan jalur mobilitas menuju area masjid. Informasi ini penting agar jamaah lebih siap menghadapi ritme Ramadhan yang berbeda dengan umroh reguler.",
+        "Pengguna dapat menyusun durasi 9, 12, atau 14 hari, memilih target malam ganjil, dan mempertimbangkan kombinasi Makkah, Madinah, serta akses transport antarkota seperti Haramain High Speed Railway. Dengan begitu, keputusan tidak lagi hanya soal harga, tetapi juga efektivitas ibadah.",
+        "Fitur ini ditujukan bagi jamaah individu, keluarga, maupun rombongan kecil yang ingin pengalaman Ramadhan lebih terarah tanpa kehilangan fleksibilitas perjalanan.",
+      ],
+    },
+    {
+      key: "transport",
+      title: "Transport Umroh Mudah: Antar-Jemput & Sewa Mobil",
+      sub: "Antar-Jemput & Sewa",
+      summary:
+        "Pesan antar-jemput bandara, rute hotel, sewa kendaraan, hingga bantuan sopir dan penerjemah multi bahasa.",
+      ctaLabel: "Login untuk atur transport",
+      paragraphs: [
+        "Dapatkan transport umroh di Arab Saudi dengan proses yang lebih praktis. Melalui MUWAHID, jamaah bisa memesan antar-jemput bandara, perjalanan ke hotel, rute menuju miqat, hingga kebutuhan sewa mobil yang lebih fleksibel.",
+        "Pilihan transport disusun agar sesuai dengan kebutuhan berbeda, mulai dari keluarga, lansia, pengguna kursi roda, sampai rombongan kecil. Dukungan penerjemah atau bantuan komunikasi juga bisa diposisikan sebagai nilai tambah agar proses koordinasi lebih nyaman.",
+        "Dengan pendekatan ini, jamaah dapat mengatur transportasi sendiri dengan rasa lebih aman, transparan, dan hemat, tanpa harus mencari solusi dari banyak pihak secara terpisah.",
+      ],
+    },
+    {
+      key: "promo",
+      title: "Promo Umroh Resmi — Diskon, DP Ringan, Cicilan Fleksibel",
+      sub: "Diskon & Cicilan",
+      summary:
+        "Temukan promo travel resmi, cashback, flash sale, voucher, early bird, dan opsi cicilan yang transparan.",
+      ctaLabel: "Login untuk lihat promo",
+      paragraphs: [
+        "MUWAHID bermitra dengan travel umroh besar, legal, dan ternama agar calon jamaah lebih mudah menemukan promo yang benar-benar relevan. Promo yang ditampilkan dapat berupa seat terbatas, flash sale, cashback umroh, voucher, early bird, dan cicilan yang lebih jelas syaratnya.",
+        "Pengguna juga bisa melihat promo musiman seperti akhir tahun, liburan sekolah, long weekend, atau Ramadhan. Dengan kurasi seperti ini, penawaran tidak hanya terlihat menarik, tetapi juga lebih mudah dibandingkan secara objektif.",
+        "Tujuan fitur promo bukan sekadar membuat pengguna tertarik, tetapi memberi konteks yang lebih lengkap agar keputusan pembelian tetap terasa aman dan transparan.",
+      ],
+    },
+    {
+      key: "ai",
+      title: "MUWAHID Berbasis Artificial Inteligent",
+      sub: "Artificial Intelligence",
+      summary:
+        "Rekomendasi berbasis AI yang menyesuaikan anggaran, jadwal, kondisi fisik, dan preferensi ibadah jamaah.",
+      ctaLabel: "Login untuk buka AI",
+      paragraphs: [
+        "MUWAHID memberikan rekomendasi berbasis AI baik pada saat persiapan keberangkatan maupun selama perjalanan ibadah. Sistem dapat memadukan anggaran, jadwal, kondisi fisik, preferensi ibadah, dan kebutuhan keluarga untuk menghasilkan saran yang lebih personal.",
+        "AI juga dapat membantu memilih bulan terbaik berangkat, area hotel yang cocok, menghitung anggaran, membandingkan beberapa skenario perjalanan, hingga memberi notifikasi jika ada perubahan harga atau ketersediaan yang penting diperhatikan.",
+        "Di sisi ibadah, AI bisa diposisikan sebagai pendamping digital yang membantu menata itinerary harian, panduan konten doa, dan kebutuhan praktis selama perjalanan, tanpa mengambil alih keputusan utama dari jamaah.",
+      ],
+    },
+  ],
+  why: {
+    title: "Kenapa MUWAHID dinamakan Asisten Digital Umroh?",
+    paragraphs: [
+      "Karena MUWAHID dirancang sebagai asisten umroh digital yang membantu jamaah Indonesia merencanakan, membandingkan, dan mengeksekusi perjalanan umroh dengan lebih mudah.",
+      "MUWAHID bisa berperan sebagai alat perencanaan dan pembanding umroh end-to-end, misalnya bandingkan harga paket umroh 9, 12, atau 14 hari dari travel umroh resmi, gunakan kalkulator umroh online untuk estimasi biaya per orang, dan urus visa umroh atau transit.",
+      "Informasi tampil transparan: harga umroh 2025 dan 2026, rute Saudi atau transit, pilihan hotel bintang 3, 4, atau 5 dekat Masjidil Haram dan Masjid Nabawi, testimoni video, itinerary umroh 9 sampai 14 hari, dan fitur bandara dari banyak kota Indonesia.",
+      "Pembayaran fleksibel: DP ringan, cicilan syariah, paylater, VA, kartu, QRIS, cashback, voucher, early bird, last minute, garansi seat, dan waiting list. Materi ibadah juga lengkap mulai dari manasik online, rukun, tata cara, arah kiblat, sampai tips perjalanan yang ramah pemula maupun rombongan.",
+    ],
+  },
+};

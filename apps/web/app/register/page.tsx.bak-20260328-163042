@@ -1,0 +1,298 @@
+﻿"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+const PROV_URL = "https://apidua.poligami.org/interaksi/routes/get_provinsi.php";
+const KAB_URL  = "https://apidua.poligami.org/interaksi/routes/get_kabupaten.php";
+const KEC_URL  = "https://apidua.poligami.org/interaksi/routes/get_kecamatan.php";
+const DESA_URL = "https://apidua.poligami.org/interaksi/routes/get_desa.php";
+const REGISTER_API = "https://apidua.poligami.org/interaksi/register.php";
+const SAVE_SESSION_API = "https://umroh.danandad.org/save_session.php";
+
+type OptionItem = { id: string; nama: string };
+
+function normalize(code?: string | null) {
+  const c = String(code ?? "").trim();
+  return c ? c.slice(0, 50) : "0000";
+}
+
+async function getGeoInfo() {
+  try {
+    const r = await fetch("https://ipapi.co/json/", { cache: "no-store" });
+    const d = await r.json();
+    return {
+      ip: d.ip || "Unknown",
+      location: [d.city, d.region].filter(Boolean).join(", ") || "Unknown",
+    };
+  } catch {
+    return {
+      ip: "Unknown",
+      location: "Unknown",
+    };
+  }
+}
+
+async function fetchOptions(url: string): Promise<OptionItem[]> {
+  const res = await fetch(url, { cache: "no-store" });
+  const json = await res.json();
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [nickname, setNickname] = useState("");
+  const [email, setEmail] = useState("");
+  const [wa, setWa] = useState("");
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+
+  const [province, setProvince] = useState("");
+  const [regency, setRegency] = useState("");
+  const [district, setDistrict] = useState("");
+  const [village, setVillage] = useState("");
+
+  const [provinces, setProvinces] = useState<OptionItem[]>([]);
+  const [regencies, setRegencies] = useState<OptionItem[]>([]);
+  const [districts, setDistricts] = useState<OptionItem[]>([]);
+  const [villages, setVillages] = useState<OptionItem[]>([]);
+
+  const [referral, setReferral] = useState("0000");
+  const [error, setError] = useState("");
+  const [hint, setHint] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const ref = normalize(
+      searchParams.get("ref") ||
+      searchParams.get("reff") ||
+      localStorage.getItem("referral")
+    );
+    localStorage.setItem("referral", ref);
+    setReferral(ref);
+    if (ref && ref !== "0000") {
+      setHint(`Kode referral terdeteksi: ${ref}`);
+    }
+
+    fetchOptions(PROV_URL)
+      .then(setProvinces)
+      .catch(() => setError("Gagal memuat daftar provinsi."));
+  }, [searchParams]);
+
+  const onProvinceChange = async (value: string) => {
+    setProvince(value);
+    setRegency("");
+    setDistrict("");
+    setVillage("");
+    setRegencies([]);
+    setDistricts([]);
+    setVillages([]);
+
+    if (!value) return;
+
+    try {
+      const data = await fetchOptions(`${KAB_URL}?prov_id=${encodeURIComponent(value)}`);
+      setRegencies(data);
+    } catch {
+      setError("Gagal memuat kabupaten/kota.");
+    }
+  };
+
+  const onRegencyChange = async (value: string) => {
+    setRegency(value);
+    setDistrict("");
+    setVillage("");
+    setDistricts([]);
+    setVillages([]);
+
+    if (!value) return;
+
+    try {
+      const data = await fetchOptions(`${KEC_URL}?kab_id=${encodeURIComponent(value)}`);
+      setDistricts(data);
+    } catch {
+      setError("Gagal memuat kecamatan.");
+    }
+  };
+
+  const onDistrictChange = async (value: string) => {
+    setDistrict(value);
+    setVillage("");
+    setVillages([]);
+
+    if (!value) return;
+
+    try {
+      const data = await fetchOptions(`${DESA_URL}?kec_id=${encodeURIComponent(value)}`);
+      setVillages(data);
+    } catch {
+      setError("Gagal memuat desa.");
+    }
+  };
+
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      if (!nickname || !email || !password) {
+        setError("Email, password, dan nama wajib diisi.");
+        setLoading(false);
+        return;
+      }
+
+      if (!/^(?:0|62|\+62)/.test(wa)) {
+        setError("Nomor WA harus dimulai dengan 08, 62, atau +62.");
+        setLoading(false);
+        return;
+      }
+
+      if (password !== password2) {
+        setError("Konfirmasi password tidak sama.");
+        setLoading(false);
+        return;
+      }
+
+      const geo = await getGeoInfo();
+
+      const province_name = provinces.find((x) => x.id === province)?.nama || "";
+      const regency_name  = regencies.find((x) => x.id === regency)?.nama || "";
+      const district_name = districts.find((x) => x.id === district)?.nama || "";
+      const village_name  = villages.find((x) => x.id === village)?.nama || "";
+
+      const payload = {
+        nickname,
+        email,
+        wa,
+        password,
+        password2,
+        referral,
+        ip: geo.ip,
+        location: geo.location,
+        province_id: province,
+        regency_id: regency,
+        district_id: district,
+        village_id: village,
+        province_name,
+        regency_name,
+        district_name,
+        village_name,
+      };
+
+      const res = await fetch(REGISTER_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        localStorage.setItem("savedEmail", email);
+        localStorage.setItem("savedPassword", password);
+        localStorage.setItem("referral", referral);
+        localStorage.setItem("ip", geo.ip);
+        localStorage.setItem("location", geo.location);
+
+        try {
+          await fetch(SAVE_SESSION_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nickname: json.nickname || nickname,
+              email: json.email || email,
+              password,
+              session_token: json.session_token,
+            }),
+          });
+        } catch {}
+
+        const qs =
+          `ref=${encodeURIComponent(referral)}` +
+          `&ip=${encodeURIComponent(geo.ip)}` +
+          `&lokasi=${encodeURIComponent(geo.location)}` +
+          `&session=${encodeURIComponent(json.session_token || "")}`;
+
+        router.push(`/login?${qs}`);
+      } else {
+        setError(json.message || "Registrasi gagal.");
+      }
+    } catch {
+      setError("Gagal terhubung ke server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="mw-page mw-auth-single-page">
+      <div className="mw-container">
+        <div className="mw-auth-single-wrap">
+          <div className="mw-auth-top-header">
+            <img src="/assets/logo_muwahid.png" className="mw-auth-logo" alt="Logo MUWAHID" />
+            <div className="mw-auth-brand">MUWAHID</div>
+            <div className="mw-auth-tagline">Asisten Umroh Digital</div>
+          </div>
+
+          <form className="mw-auth-card-single" onSubmit={handleRegister}>
+            <h2>Daftar User Baru</h2>
+
+            <label htmlFor="nickname">Nama Panggilan *</label>
+            <input id="nickname" type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} required />
+
+            <label htmlFor="email">Email *</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+
+            <label htmlFor="wa">Nomor WA *</label>
+            <input id="wa" type="text" placeholder="08xxxxxxxxxx" value={wa} onChange={(e) => setWa(e.target.value)} required />
+
+            <label htmlFor="password">Password *</label>
+            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+
+            <label htmlFor="password2">Konfirmasi Password *</label>
+            <input id="password2" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} required />
+
+            <label htmlFor="province">Provinsi *</label>
+            <select id="province" value={province} onChange={(e) => onProvinceChange(e.target.value)} required>
+              <option value="">-- Pilih --</option>
+              {provinces.map((d) => <option key={d.id} value={d.id}>{d.nama}</option>)}
+            </select>
+
+            <label htmlFor="regency">Kabupaten/Kota *</label>
+            <select id="regency" value={regency} onChange={(e) => onRegencyChange(e.target.value)} required>
+              <option value="">-- Pilih --</option>
+              {regencies.map((d) => <option key={d.id} value={d.id}>{d.nama}</option>)}
+            </select>
+
+            <label htmlFor="district">Kecamatan *</label>
+            <select id="district" value={district} onChange={(e) => onDistrictChange(e.target.value)} required>
+              <option value="">-- Pilih --</option>
+              {districts.map((d) => <option key={d.id} value={d.id}>{d.nama}</option>)}
+            </select>
+
+            <label htmlFor="village">Desa *</label>
+            <select id="village" value={village} onChange={(e) => setVillage(e.target.value)} required>
+              <option value="">-- Pilih --</option>
+              {villages.map((d) => <option key={d.id} value={d.id}>{d.nama}</option>)}
+            </select>
+
+            <button type="submit" className="mw-auth-btn-primary">
+              {loading ? "Sedang daftar..." : "Daftar"}
+            </button>
+
+            {error ? <div className="mw-auth-error-single">{error}</div> : null}
+            {hint ? <div className="mw-auth-hint-single">{hint}</div> : null}
+          </form>
+
+          <footer className="mw-auth-footer-single">
+            <div><strong>Muwahid, Copyright 2025</strong></div>
+            <div>Dipersembahkan oleh Bani Saifuddin Indonesia</div>
+          </footer>
+        </div>
+      </div>
+    </main>
+  );
+}

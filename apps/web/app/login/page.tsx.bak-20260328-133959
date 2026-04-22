@@ -1,0 +1,438 @@
+﻿"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type GeoInfo = {
+  ip: string;
+  location: string;
+  country: string;
+  city: string;
+  region: string;
+  org: string;
+  timezone: string;
+  source: string;
+};
+
+const LEGACY_LOGIN_API = "https://apidua.poligami.org/interaksi/login.php";
+const LEGACY_GOOGLE_LOGIN = "https://umroh.danandad.org/auth/google_login.php";
+
+const emptyGeo: GeoInfo = {
+  ip: "",
+  location: "",
+  country: "",
+  city: "",
+  region: "",
+  org: "",
+  timezone: "",
+  source: "",
+};
+
+function normalizeReferral(code?: string | null) {
+  const clean = String(code ?? "").trim();
+  return clean ? clean.slice(0, 50) : "0000";
+}
+
+function readStoredJson<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistGeo(info: GeoInfo) {
+  if (typeof window === "undefined") return;
+
+  localStorage.setItem("ip", info.ip || "");
+  localStorage.setItem("location", info.location || "");
+  localStorage.setItem("country", info.country || "");
+
+  const previous = readStoredJson<Record<string, unknown>>("ip_meta") || {};
+  const nextMeta = {
+    ...previous,
+    ip: info.ip || "",
+    city: info.city || "",
+    region: info.region || "",
+    country: info.country || "",
+    org: info.org || "",
+    timezone: info.timezone || "",
+    location: info.location || "",
+    source: info.source || "",
+    updated_at: new Date().toISOString(),
+  };
+
+  localStorage.setItem("ip_meta", JSON.stringify(nextMeta));
+}
+
+async function fetchGeoInfo(): Promise<GeoInfo> {
+  if (typeof window === "undefined") return emptyGeo;
+
+  const simpleIp = localStorage.getItem("ip") || "";
+  const simpleLocation = localStorage.getItem("location") || "";
+  const simpleCountry = localStorage.getItem("country") || "";
+  const ipMeta = readStoredJson<Record<string, string>>("ip_meta");
+
+  if (ipMeta?.ip || simpleIp || simpleLocation) {
+    return {
+      ip: ipMeta?.ip || simpleIp,
+      location:
+        ipMeta?.location ||
+        [ipMeta?.city, ipMeta?.region].filter(Boolean).join(", ") ||
+        simpleLocation,
+      country: ipMeta?.country || simpleCountry || "",
+      city: ipMeta?.city || "",
+      region: ipMeta?.region || "",
+      org: ipMeta?.org || "",
+      timezone: ipMeta?.timezone || "",
+      source: String(ipMeta?.source || "storage"),
+    };
+  }
+
+  try {
+    const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        ip: data.ip || "",
+        location: [data.city, data.region].filter(Boolean).join(", "),
+        country: data.country_name || "",
+        city: data.city || "",
+        region: data.region || "",
+        org: data.org || "",
+        timezone: data.timezone || "",
+        source: "ipapi",
+      };
+    }
+  } catch {
+    // fallback below
+  }
+
+  try {
+    const res = await fetch("https://ipinfo.io/json", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        ip: data.ip || "",
+        location: [data.city, data.region].filter(Boolean).join(", "),
+        country: data.country || "",
+        city: data.city || "",
+        region: data.region || "",
+        org: data.org || "",
+        timezone: data.timezone || "",
+        source: "ipinfo",
+      };
+    }
+  } catch {
+    // diamkan
+  }
+
+  return emptyGeo;
+}
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const [referral, setReferral] = useState("0000");
+  const [geo, setGeo] = useState<GeoInfo>(emptyGeo);
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState("/menu");
+  const [selectedFeatureLabel, setSelectedFeatureLabel] = useState("");
+  const [landingMetaText, setLandingMetaText] = useState("");
+
+  const referralInfo = useMemo(() => {
+    return referral && referral !== "0000"
+      ? `Kode referral terdeteksi: ${referral}`
+      : "Kode referral belum terdeteksi. Sistem memakai kode default.";
+  }, [referral]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        const url = new URL(window.location.href);
+
+        const referralCode = normalizeReferral(
+          url.searchParams.get("reff") ||
+          url.searchParams.get("ref") ||
+          url.searchParams.get("referal") ||
+          url.searchParams.get("referral") ||
+          localStorage.getItem("referral")
+        );
+
+        localStorage.setItem("referral", referralCode);
+        if (mounted) setReferral(referralCode);
+
+        const savedEmail =
+          localStorage.getItem("savedEmail") ||
+          localStorage.getItem("email") ||
+          "";
+        const savedPassword =
+          localStorage.getItem("savedPassword") ||
+          localStorage.getItem("password") ||
+          "";
+
+        const redirectStored = localStorage.getItem("redirect_after_login") || "/menu";
+        const selectedStored = localStorage.getItem("selected_feature_label") || "";
+
+        const landingMeta = readStoredJson<Record<string, string>>("landing_meta");
+        const landingSummary = landingMeta
+          ? `${landingMeta.language || "-"} • ${landingMeta.platform || "-"} • ${landingMeta.screen || "-"}`
+          : "Metadata landing belum tersedia";
+
+        if (mounted) {
+          setEmail(savedEmail);
+          setPassword(savedPassword);
+          setRememberMe(Boolean(savedEmail && savedPassword));
+          setRedirectAfterLogin(redirectStored);
+          setSelectedFeatureLabel(selectedStored);
+          setLandingMetaText(landingSummary);
+        }
+
+        const info = await fetchGeoInfo();
+        persistGeo(info);
+        if (mounted) setGeo(info);
+      } catch {
+        // diamkan agar halaman tetap stabil
+      }
+    };
+
+    void init();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const goRegister = () => {
+    const ref = normalizeReferral(localStorage.getItem("referral") || referral);
+    router.push(`/register?ref=${encodeURIComponent(ref)}`);
+  };
+
+  const goGoogleLogin = async () => {
+    const currentGeo = geo.ip || geo.location ? geo : await fetchGeoInfo();
+    persistGeo(currentGeo);
+    setGeo(currentGeo);
+
+    const ref = normalizeReferral(localStorage.getItem("referral") || referral);
+    localStorage.setItem("lastAuth", "google");
+
+    const target =
+      `${LEGACY_GOOGLE_LOGIN}?ref=${encodeURIComponent(ref)}` +
+      `&ip=${encodeURIComponent(currentGeo.ip)}` +
+      `&lokasi=${encodeURIComponent(currentGeo.location)}`;
+
+    window.location.href = target;
+  };
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const currentGeo = geo.ip || geo.location ? geo : await fetchGeoInfo();
+      persistGeo(currentGeo);
+      setGeo(currentGeo);
+
+      const payload = {
+        email: email.trim(),
+        password,
+        ip: currentGeo.ip,
+        location: currentGeo.location,
+        country: currentGeo.country,
+        agent: navigator.userAgent || "",
+        referral: normalizeReferral(localStorage.getItem("referral") || referral || "0000"),
+      };
+
+      const res = await fetch(LEGACY_LOGIN_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || "Login gagal.");
+      }
+
+      localStorage.setItem("email", email.trim());
+      localStorage.setItem("password", password);
+      localStorage.setItem("lastAuth", "password");
+
+      if (rememberMe) {
+        localStorage.setItem("savedEmail", email.trim());
+        localStorage.setItem("savedPassword", password);
+      } else {
+        localStorage.removeItem("savedEmail");
+        localStorage.removeItem("savedPassword");
+      }
+
+      if (data?.sid) localStorage.setItem("sid", String(data.sid));
+      if (data?.nama) localStorage.setItem("nama", String(data.nama));
+
+      const redirectTarget =
+        localStorage.getItem("redirect_after_login") ||
+        redirectAfterLogin ||
+        "/menu";
+
+      router.push(redirectTarget.startsWith("/") ? redirectTarget : "/menu");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Gagal terhubung ke server.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="mw-page mw-login-page">
+      <section className="mw-section-lg mw-login-shell">
+        <div className="mw-container">
+          <div className="mw-login-grid">
+            <aside className="mw-login-left">
+              <div className="mw-badge">
+                <span className="icon">🕋</span>
+                <span>Masuk ke Ekosistem MUWAHID</span>
+              </div>
+
+              <h1 className="mw-title mw-login-title">Lanjutkan Perjalanan Umroh Anda</h1>
+              <p className="mw-desc mw-login-desc">
+                Masuk untuk membuka fitur yang tadi Anda pilih, melihat promo resmi,
+                serta melanjutkan alur yang sudah disimpan dari landing page.
+              </p>
+
+              <div className="mw-login-info-list">
+                <div className="mw-login-info-card">
+                  <div className="mw-login-info-label">Referral</div>
+                  <div className="mw-login-info-value">{referralInfo}</div>
+                </div>
+
+                <div className="mw-login-info-card">
+                  <div className="mw-login-info-label">IP / Lokasi Device</div>
+                  <div className="mw-login-info-value">
+                    {geo.ip || geo.location
+                      ? `${geo.ip || "-"} • ${geo.location || "Lokasi tidak terdeteksi"}`
+                      : "Sedang membaca IP dan lokasi perangkat..."}
+                  </div>
+                </div>
+
+                <div className="mw-login-info-card">
+                  <div className="mw-login-info-label">Arah Setelah Login</div>
+                  <div className="mw-login-info-value">
+                    {selectedFeatureLabel
+                      ? `${selectedFeatureLabel} → ${redirectAfterLogin}`
+                      : redirectAfterLogin || "/menu"}
+                  </div>
+                </div>
+
+                <div className="mw-login-info-card">
+                  <div className="mw-login-info-label">Metadata Landing</div>
+                  <div className="mw-login-info-value">{landingMetaText}</div>
+                </div>
+              </div>
+            </aside>
+
+            <section className="mw-login-card-wrap">
+              <div className="mw-login-card">
+                <div className="mw-login-brand">
+                  <div className="mw-login-brand-mark">🕋</div>
+                  <div>
+                    <div className="mw-login-brand-title">MUWAHID</div>
+                    <div className="mw-login-brand-sub">Asisten Umroh Digital</div>
+                  </div>
+                </div>
+
+                <h2 className="mw-login-card-title">Login Pengguna</h2>
+
+                <form onSubmit={handleLogin} className="mw-login-form">
+                  <label className="mw-login-label" htmlFor="email">Email</label>
+                  <input
+                    id="email"
+                    type="email"
+                    className="mw-login-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+
+                  <label className="mw-login-label" htmlFor="password">Password</label>
+                  <input
+                    id="password"
+                    type="password"
+                    className="mw-login-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+
+                  <div className="mw-login-row">
+                    <label className="mw-login-remember">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                      />
+                      <span>Ingat saya</span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="mw-btn mw-btn-primary mw-login-submit"
+                    disabled={loading}
+                  >
+                    {loading ? "Sedang masuk..." : "Masuk"}
+                  </button>
+
+                  {error ? <div className="mw-login-error">{error}</div> : null}
+                </form>
+
+                <div className="mw-login-divider"><span>Belum punya akun?</span></div>
+
+                <button
+                  type="button"
+                  className="mw-login-alt-button"
+                  onClick={goRegister}
+                >
+                  Daftar Akun Baru
+                </button>
+
+                <div className="mw-login-divider"><span>Atau lanjut dengan</span></div>
+
+                <button
+                  type="button"
+                  className="mw-login-alt-button mw-login-google"
+                  onClick={goGoogleLogin}
+                >
+                  <img
+                    src="https://developers.google.com/identity/images/g-logo.png"
+                    alt="Google"
+                  />
+                  <span>Login dengan Google</span>
+                </button>
+
+                <div className="mw-login-footnote">
+                  Dengan masuk, Anda melanjutkan alur yang disimpan dari landing page dan referral.
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

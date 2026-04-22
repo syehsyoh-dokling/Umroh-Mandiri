@@ -1,0 +1,231 @@
+﻿"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+type FeatureItem = {
+  title: string;
+  sub: string;
+  desc: string;
+  icon: string;
+  target: string;
+  requireLogin?: boolean;
+};
+
+const features: FeatureItem[] = [
+  {
+    title: "Bandingkan Harga",
+    sub: "Antar Travel",
+    desc: "Bandingkan harga paket umroh dari berbagai travel resmi, filter kota keberangkatan, maskapai, hotel, dan fasilitas dalam satu halaman.",
+    icon: "⚖",
+    target: "/menu?feature=bandingkan-harga",
+    requireLogin: true,
+  },
+  {
+    title: "Kalkulator Umroh",
+    sub: "Umroh Mandiri",
+    desc: "Simulasikan estimasi biaya umroh per orang/per keluarga, lengkap dengan skenario termurah, durasi, dan itinerary.",
+    icon: "🧮",
+    target: "/menu?feature=kalkulator-umroh",
+    requireLogin: true,
+  },
+  {
+    title: "Visa & Administrasi",
+    sub: "Lengkap & Mudah",
+    desc: "Panduan lengkap visa umroh, visa ziarah, stopover, tourist eVisa, vaksin, asuransi, dan dokumen perjalanan.",
+    icon: "📄",
+    target: "/menu?feature=visa-administrasi",
+    requireLogin: true,
+  },
+  {
+    title: "Panduan Doa",
+    sub: "Video Talkin",
+    desc: "Panduan doa langkah demi langkah dari keberangkatan hingga akhir ibadah, dilengkapi format yang mudah diikuti.",
+    icon: "📖",
+    target: "/menu?feature=panduan-doa",
+    requireLogin: true,
+  },
+  {
+    title: "Umroh + I'tikaf",
+    sub: "Ramadhan",
+    desc: "Rencanakan umroh Ramadhan plus i'tikaf, termasuk panduan zona, titik prioritas, dan kebutuhan jamaah.",
+    icon: "☾",
+    target: "/menu?feature=umroh-ramadhan",
+    requireLogin: true,
+  },
+  {
+    title: "Transport Mudah",
+    sub: "Antar-Jemput & Sewa",
+    desc: "Pesan antar-jemput bandara, rute hotel, sewa kendaraan, hingga bantuan sopir dan penerjemah multi bahasa.",
+    icon: "🚐",
+    target: "/menu?feature=transport",
+    requireLogin: true,
+  },
+  {
+    title: "Promo Umroh Resmi",
+    sub: "Diskon & Cicilan",
+    desc: "Temukan promo travel resmi, cashback, flash sale, voucher, early bird, dan opsi cicilan yang transparan.",
+    icon: "🏷",
+    target: "/menu?feature=promo",
+    requireLogin: true,
+  },
+  {
+    title: "Berbasis AI",
+    sub: "Artificial Intelligence",
+    desc: "Rekomendasi berbasis AI yang menyesuaikan anggaran, jadwal, kondisi fisik, dan preferensi ibadah jamaah.",
+    icon: "🧠",
+    target: "/menu?feature=ai",
+    requireLogin: true,
+  },
+];
+
+export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const ref = url.searchParams.get("ref");
+    const pathnameMatch = window.location.pathname.match(/referal(\w+)/i);
+
+    if (ref) {
+      localStorage.setItem("referral", ref.trim().slice(0, 50));
+    } else if (pathnameMatch?.[1]) {
+      localStorage.setItem("referral", pathnameMatch[1].trim().slice(0, 50));
+    } else if (!localStorage.getItem("referral")) {
+      localStorage.setItem("referral", "0000");
+    }
+  }, []);
+
+  const goLogin = (redirectTo?: string) => {
+    if (redirectTo) {
+      localStorage.setItem("redirect_after_login", redirectTo);
+    }
+    router.push("/login");
+  };
+
+  const handleFeatureClick = (item: FeatureItem) => {
+    if (item.requireLogin) {
+      localStorage.setItem("selected_feature_label", item.title);
+      localStorage.setItem("redirect_after_login", item.target);
+      router.push("/login");
+      return;
+    }
+    router.push(item.target);
+  };
+
+  const goExplore = () => {
+    const el = document.getElementById("fitur");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return (
+    <main className="mw-page">
+      <section className="mw-hero">
+        <div className="mw-hero-inner">
+          <div className="mw-badge">
+            <span className="icon">🕋</span>
+            <span>Asisten Umroh Digital</span>
+          </div>
+
+          <h1 className="mw-hero-title">MUWAHID</h1>
+          <div className="mw-hero-subtitle">Selamat Datang Tamu Allah</div>
+
+          <p className="mw-hero-desc">
+            Asisten virtual yang siap membantu & menjadikan umroh Anda semudah pulang kampung.
+          </p>
+
+          <div className="mw-hero-actions">
+            <button className="mw-btn mw-btn-primary" onClick={() => goLogin("/menu")}>
+              Mulai Sekarang
+            </button>
+            <button className="mw-btn mw-btn-ghost" onClick={goExplore}>
+              Jelajahi Fitur
+            </button>
+          </div>
+
+          <div className="mw-mouse" />
+        </div>
+      </section>
+
+      <section id="fitur" className="mw-section-lg mw-floating-start">
+        <div className="mw-container">
+          <div className="mw-head">
+            <div className="mw-pill">FITUR UNGGULAN</div>
+            <h2 className="mw-title">Semua yang Anda Butuhkan</h2>
+            <p className="mw-desc">
+              Dari perencanaan hingga pelaksanaan ibadah, MUWAHID hadir sebagai asisten digital umroh terlengkap.
+            </p>
+          </div>
+
+          <div className="mw-grid">
+            {features.map((item) => (
+              <article
+                key={item.title}
+                className="mw-card"
+                onClick={() => handleFeatureClick(item)}
+                style={{ cursor: "pointer" }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") handleFeatureClick(item);
+                }}
+              >
+                <div className="mw-card-icon">{item.icon}</div>
+                <h3>{item.title}</h3>
+                <div className="sub">{item.sub}</div>
+                <p>{item.desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mw-section-lg">
+        <div className="mw-container">
+          <div className="mw-head">
+            <h2 className="mw-title">Kenapa MUWAHID?</h2>
+            <p className="mw-desc">
+              Karena MUWAHID dirancang sebagai asisten umroh digital yang membantu jamaah Indonesia
+              merencanakan, membandingkan, dan mengeksekusi perjalanan umroh dengan lebih mudah.
+            </p>
+          </div>
+
+          <div className="mw-why-box">
+            <ul className="mw-why-list">
+              <li><span className="mw-check">✓</span><span>Dirancang sebagai asisten umroh digital end-to-end</span></li>
+              <li><span className="mw-check">✓</span><span>Hanya menampilkan travel PPIU Kemenag & IATA terakreditasi 'A'</span></li>
+              <li><span className="mw-check">✓</span><span>Rekomendasi AI yang menyesuaikan anggaran & preferensi Anda</span></li>
+              <li><span className="mw-check">✓</span><span>Penerjemah digital multi bahasa untuk komunikasi lancar</span></li>
+              <li><span className="mw-check">✓</span><span>Panduan ibadah lengkap dari keberangkatan hingga pulang</span></li>
+              <li><span className="mw-check">✓</span><span>Informasi transparan tanpa biaya tersembunyi</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="mw-section-lg">
+        <div className="mw-container">
+          <div className="mw-cta">
+            <h2>Siap Memulai Perjalanan Suci Anda?</h2>
+            <p>
+              Mulai rencanakan umroh Anda sekarang dengan MUWAHID. Bandingkan, hitung, dan pesan dengan mudah.
+            </p>
+            <button className="mw-btn mw-btn-primary" onClick={() => goLogin("/menu")}>
+              Mulai Sekarang →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <footer className="mw-footer">
+        <div className="mw-container mw-footer-row">
+          <div className="mw-brand">
+            <div className="mw-brand-mark">🕋</div>
+            <span>MUWAHID</span>
+          </div>
+          <div>© 2026 MUWAHID — Asisten Umroh Digital. Hak cipta dilindungi.</div>
+        </div>
+      </footer>
+    </main>
+  );
+}

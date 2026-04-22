@@ -1,0 +1,76 @@
+﻿from fastapi import APIRouter, HTTPException
+from sqlalchemy import text
+from app.database import engine
+
+router = APIRouter(prefix="/wilayah", tags=["Wilayah"])
+
+
+@router.get("/provinsi")
+def get_provinsi():
+    query = text("""
+        SELECT id, nama
+        FROM provinces
+        ORDER BY nama ASC
+    """)
+
+    with engine.connect() as conn:
+        rows = conn.execute(query).mappings().all()
+
+    return {
+        "success": True,
+        "data": [dict(r) for r in rows]
+    }
+
+
+@router.get("/kabupaten/{provinsi_id}")
+def get_kabupaten(provinsi_id: str):
+    query = text("""
+        SELECT id, nama
+        FROM regencies
+        WHERE province_id = :provinsi_id
+        ORDER BY nama ASC
+    """)
+
+    with engine.connect() as conn:
+        rows = conn.execute(query, {"provinsi_id": provinsi_id}).mappings().all()
+
+    return {
+        "success": True,
+        "data": [dict(r) for r in rows]
+    }
+
+
+@router.get("/kecamatan/{kabupaten_id}")
+def get_kecamatan(kabupaten_id: str):
+    query = text("""
+        SELECT id, nama
+        FROM districts
+        WHERE regency_id = :kabupaten_id
+        ORDER BY nama ASC
+    """)
+
+    with engine.connect() as conn:
+        rows = conn.execute(query, {"kabupaten_id": kabupaten_id}).mappings().all()
+
+    return {
+        "success": True,
+        "data": [dict(r) for r in rows]
+    }
+
+
+@router.get("/desa/{kecamatan_id}")
+def get_desa(kecamatan_id: str):
+    query = text("""
+        SELECT id, nama
+        FROM villages
+        WHERE district_id = :kecamatan_id
+        ORDER BY nama ASC
+    """)
+
+    with engine.connect() as conn:
+        rows = conn.execute(query, {"kecamatan_id": kecamatan_id}).mappings().all()
+
+    return {
+        "success": True,
+        "data": [dict(r) for r in rows]
+    }

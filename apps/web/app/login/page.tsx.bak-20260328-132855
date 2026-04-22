@@ -1,0 +1,136 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [referral, setReferral] = useState("0000");
+  const [geo, setGeo] = useState({ ip: "", location: "" });
+
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+
+      const ref =
+        url.searchParams.get("reff") ||
+        url.searchParams.get("ref") ||
+        localStorage.getItem("referral") ||
+        "0000";
+
+      localStorage.setItem("referral", ref);
+      setReferral(ref);
+
+      const savedEmail = localStorage.getItem("savedEmail") || "";
+      const savedPassword = localStorage.getItem("savedPassword") || "";
+
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRemember(Boolean(savedEmail));
+
+      fetch("https://ipinfo.io/json")
+        .then((r) => r.json())
+        .then((d) => {
+          const payload = {
+            ip: d.ip || "",
+            location: `${d.city || ""}, ${d.region || ""}`,
+          };
+          localStorage.setItem("ip_meta", JSON.stringify(d));
+          setGeo(payload);
+        })
+        .catch(() => {});
+    } catch {}
+  }, []);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const payload = {
+        email,
+        password,
+        referral,
+        ip: geo.ip,
+        location: geo.location,
+        agent: navigator.userAgent,
+      };
+
+      const res = await fetch("https://apidua.poligami.org/interaksi/login.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.message || "Login gagal");
+
+      if (remember) {
+        localStorage.setItem("savedEmail", email);
+        localStorage.setItem("savedPassword", password);
+      }
+
+      localStorage.setItem("email", email);
+
+      const redirect =
+        localStorage.getItem("redirect_after_login") || "/menu";
+
+      router.push(redirect);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="mw-page mw-auth-page">
+      <div className="mw-container">
+        <div className="mw-auth-card">
+          <h2>Login MUWAHID</h2>
+
+          <form onSubmit={handleLogin}>
+            <input
+              className="mw-auth-input"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <input
+              className="mw-auth-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <label>
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Ingat saya
+            </label>
+
+            <button className="mw-btn mw-btn-primary" disabled={loading}>
+              {loading ? "Loading..." : "Login"}
+            </button>
+
+            {error && <div style={{ color: "red" }}>{error}</div>}
+          </form>
+        </div>
+      </div>
+    </main>
+  );
+}
