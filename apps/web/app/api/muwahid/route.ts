@@ -83,6 +83,60 @@ async function searchKrbContext(query: string) {
   return payload.results ?? [];
 }
 
+function buildKrbPrompt(message: string, contextLines: string) {
+  return [
+    "Kamu akan menjawab HANYA dari konteks KRB berikut.",
+    "Jika konteks tidak cukup untuk menjawab dengan yakin, kembalikan JSON persis seperti ini:",
+    '{"supported":false,"answer":"","sources":[]}',
+    "Jika konteks cukup, kembalikan JSON persis seperti ini:",
+    '{"supported":true,"answer":"jawaban ringkas","sources":["nama kitab atau dokumen"]}',
+    "Jangan tambahkan markdown, kode block, atau penjelasan di luar JSON.",
+    "",
+    "KONTEKS KRB:",
+    contextLines,
+    "",
+    `PERTANYAAN: ${message}`,
+  ].join("\n");
+}
+
+function tryParseAssistantJson(rawText: string) {
+  const trimmed = rawText.trim();
+  const jsonStart = trimmed.indexOf("{");
+  const jsonEnd = trimmed.lastIndexOf("}");
+  if (jsonStart < 0 || jsonEnd < 0 || jsonEnd <= jsonStart) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmed.slice(jsonStart, jsonEnd + 1)) as {
+      supported?: boolean;
+      answer?: string;
+      sources?: string[];
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatWebSources(response: Awaited<ReturnType<GoogleGenAI["models"]["generateContent"]>>) {
+  const groundingMetadata = response.candidates?.[0]?.groundingMetadata as
+    | {
+        groundingChunks?: Array<{ web?: { title?: string; uri?: string } }>;
+      }
+    | undefined;
+
+  const sources = groundingMetadata?.groundingChunks
+    ?.map((chunk) => {
+      const title = chunk.web?.title;
+      const uri = chunk.web?.uri;
+      if (!title && !uri) return null;
+      return title ? `${title}${uri ? ` (${uri})` : ""}` : uri ?? null;
+    })
+    .filter((item): item is string => Boolean(item));
+
+  return sources ?? [];
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
@@ -118,26 +172,41 @@ export async function POST(request: Request) {
       .filter(Boolean)
       .join("\n\n");
 
-    const prompt = contextLines
-      ? [
-          "Gunakan konteks berikut dari folder KRB sebagai referensi utama. Kalau konteks tidak cukup, jawab dengan jujur dan singkat.",
-          contextLines,
-          "",
-          `Pertanyaan: ${message}`,
-        ].join("\n")
-      : message;
-
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-      contents: prompt,
+
+    if (contextLines) {
+      const krbResponse = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
+        contents: buildKrbPrompt(message, contextLines),
+        config: {
+          systemInstruction: `${systemInstruction} Kamu adalah parser jawaban untuk KRB. Patuh pada format JSON yang diminta dan jangan menambah teks lain.`,
+        },
+      });
+
+      const krbParsed = tryParseAssistantJson(krbResponse.text || "");
+      if (krbParsed?.supported && krbParsed.answer?.trim()) {
+        return NextResponse.json({
+          answer: krbParsed.answer.trim(),
+          sources: krbParsed.sources ?? [],
+          sourceType: "krb",
+        });
+      }
+    }
+
+    const webResponse = await ai.models.generateContent({
+      model: process.env.GEMINI_MODEL || "gemini-2.5-flash-lite",
+      contents: `Jawab pertanyaan berikut dengan bantuan Google Search. Jika ada sumber, sebutkan nama buku/kitab atau situsnya dengan jelas di akhir jawaban dalam bentuk daftar singkat.\n\nPertanyaan: ${message}`,
       config: {
-        systemInstruction,
+        systemInstruction: `${systemInstruction} Jawab ringkas, akurat, dan utamakan sumber yang bisa diverifikasi. Gunakan Google Search grounding bila diperlukan.`,
+        tools: [{ googleSearch: {} }],
       },
     });
 
+    const webSources = formatWebSources(webResponse);
     return NextResponse.json({
-      answer: response.text || "Maaf, MUWAHID belum mendapatkan jawaban yang jelas.",
+      answer: webResponse.text || "Maaf, MUWAHID belum mendapatkan jawaban yang jelas.",
+      sources: webSources,
+      sourceType: "web",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gagal menghubungi Gemini.";
