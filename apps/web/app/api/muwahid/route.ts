@@ -12,6 +12,63 @@ const vertexSearchProjectId = process.env.VERTEX_SEARCH_PROJECT_ID || process.en
 const vertexSearchLocation = process.env.VERTEX_SEARCH_LOCATION || "global";
 const vertexSearchEngineId = process.env.VERTEX_SEARCH_ENGINE_ID || "krb-search";
 const vertexSearchServingConfig = process.env.VERTEX_SEARCH_SERVING_CONFIG || "default_search";
+const krbSearchStopwords = new Set([
+  "apa",
+  "adalah",
+  "agar",
+  "akan",
+  "atau",
+  "bagaimana",
+  "bagi",
+  "bila",
+  "dalam",
+  "dengan",
+  "dan",
+  "dari",
+  "di",
+  "dia",
+  "itu",
+  "jadi",
+  "jika",
+  "juga",
+  "ke",
+  "kamu",
+  "karena",
+  "kapan",
+  "kalo",
+  "kalau",
+  "kami",
+  "kapan",
+  "kapan",
+  "karena",
+  "kita",
+  "maka",
+  "mana",
+  "mari",
+  "masih",
+  "menurut",
+  "mohon",
+  "nah",
+  "para",
+  "pada",
+  "pun",
+  "saja",
+  "sambil",
+  "siapa",
+  "sudah",
+  "supaya",
+  "tanpa",
+  "tentang",
+  "terhadap",
+  "untuk",
+  "yang",
+  "jelaskan",
+  "ringkas",
+  "singkat",
+  "sumber",
+  "kb",
+  "krb",
+]);
 
 async function getVertexAccessToken() {
   const metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
@@ -42,45 +99,84 @@ async function searchKrbContext(query: string) {
   }
 
   const searchUrl = `https://discoveryengine.googleapis.com/v1/projects/${vertexSearchProjectId}/locations/${vertexSearchLocation}/collections/default_collection/engines/${vertexSearchEngineId}/servingConfigs/${vertexSearchServingConfig}:search`;
-  const response = await fetch(searchUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "X-Goog-User-Project": vertexSearchProjectId,
-    },
-    body: JSON.stringify({
-      query,
-      pageSize: 3,
-      contentSearchSpec: {
-        snippetSpec: {
-          returnSnippet: true,
-        },
-      },
-    }),
-    cache: "no-store",
-  });
+  const cleanedQuery = query
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00C0-\u024F\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 2 && !krbSearchStopwords.has(word))
+    .slice(0, 10)
+    .join(" ");
 
-  if (!response.ok) {
-    return [];
+  const queries = Array.from(new Set([query, cleanedQuery].filter((item) => item.trim().length > 0)));
+  const allResults: Array<{
+    document?: {
+      derivedStructData?: {
+        title?: string;
+        link?: string;
+        snippets?: Array<{
+          snippet?: string;
+          snippet_status?: string;
+        }>;
+      };
+    };
+  }> = [];
+  const seenLinks = new Set<string>();
+
+  for (const candidateQuery of queries) {
+    const response = await fetch(searchUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "X-Goog-User-Project": vertexSearchProjectId,
+      },
+      body: JSON.stringify({
+        query: candidateQuery,
+        pageSize: 5,
+        contentSearchSpec: {
+          snippetSpec: {
+            returnSnippet: true,
+          },
+        },
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const payload = (await response.json()) as {
+      results?: Array<{
+        document?: {
+          derivedStructData?: {
+            title?: string;
+            link?: string;
+            snippets?: Array<{
+              snippet?: string;
+              snippet_status?: string;
+            }>;
+          };
+        };
+      }>;
+    };
+
+    for (const result of payload.results ?? []) {
+      const link = result.document?.derivedStructData?.link ?? "";
+      const dedupeKey = link || result.document?.derivedStructData?.title || JSON.stringify(result);
+      if (seenLinks.has(dedupeKey)) {
+        continue;
+      }
+      seenLinks.add(dedupeKey);
+      allResults.push(result);
+    }
+
+    if (allResults.length >= 5) {
+      break;
+    }
   }
 
-  const payload = (await response.json()) as {
-    results?: Array<{
-      document?: {
-        derivedStructData?: {
-          title?: string;
-          link?: string;
-          snippets?: Array<{
-            snippet?: string;
-            snippet_status?: string;
-          }>;
-        };
-      };
-    }>;
-  };
-
-  return payload.results ?? [];
+  return allResults;
 }
 
 function buildKrbPrompt(message: string, contextLines: string) {
