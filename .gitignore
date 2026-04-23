@@ -12,3 +12,4 @@ __pycache__/
 *.err.log
 .DS_Store
 _localhost_capture/
+KRB/
