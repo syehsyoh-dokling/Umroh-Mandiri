@@ -8,6 +8,8 @@ import { apiUrl } from "@/lib/config";
 type ChatMessage = {
   role: "assistant" | "user";
   text: string;
+  sources?: string[];
+  sourceType?: "krb" | "web";
 };
 
 const starterMessages: ChatMessage[] = [
@@ -51,10 +53,15 @@ export function MuwahidAssistant({
             : { message }
         ),
       });
-      const payload = (await response.json()) as { answer?: string };
+      const payload = (await response.json()) as { answer?: string; sources?: string[]; sourceType?: "krb" | "web" };
       setMessages((current) => [
         ...current,
-        { role: "assistant", text: payload.answer || "Maaf, saya belum bisa menjawab." },
+        {
+          role: "assistant",
+          text: payload.answer || "Maaf, saya belum bisa menjawab.",
+          sources: payload.sources ?? [],
+          sourceType: payload.sourceType,
+        },
       ]);
     } catch {
       setMessages((current) => [
@@ -91,7 +98,32 @@ export function MuwahidAssistant({
                   : "mr-auto max-w-[92%] bg-[rgba(23,104,95,0.08)] text-[var(--foreground)]"
               }`}
             >
-              {message.text}
+              <p>{message.text}</p>
+              {message.role === "assistant" && message.sources?.length ? (
+                <div className="mt-3 border-t border-[rgba(23,104,95,0.16)] pt-2 text-xs leading-5 text-[var(--muted-strong)]">
+                  <div className="font-semibold uppercase tracking-[0.12em]">
+                    Sumber {message.sourceType === "krb" ? "KRB" : "Web"}
+                  </div>
+                  <ul className="mt-1 space-y-1">
+                    {message.sources.map((source, sourceIndex) => (
+                      <li key={`${index}-${sourceIndex}`}>
+                        {/^https?:\/\//i.test(source) ? (
+                          <a
+                            href={source}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="break-words text-[var(--primary-strong)] underline decoration-[rgba(23,104,95,0.34)] underline-offset-2"
+                          >
+                            {source}
+                          </a>
+                        ) : (
+                          <span className="break-words">{source}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ))}
           {loading ? (
@@ -163,7 +195,32 @@ export function MuwahidAssistant({
                     : "mr-8 bg-[rgba(23,104,95,0.08)] text-[var(--foreground)]"
                 }`}
               >
-                {message.text}
+                <p>{message.text}</p>
+                {message.role === "assistant" && message.sources?.length ? (
+                  <div className="mt-3 border-t border-[rgba(23,104,95,0.16)] pt-2 text-xs leading-5 text-[var(--muted-strong)]">
+                    <div className="font-semibold uppercase tracking-[0.12em]">
+                      Sumber {message.sourceType === "krb" ? "KRB" : "Web"}
+                    </div>
+                    <ul className="mt-1 space-y-1">
+                      {message.sources.map((source, sourceIndex) => (
+                        <li key={`${index}-${sourceIndex}`}>
+                          {/^https?:\/\//i.test(source) ? (
+                            <a
+                              href={source}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="break-words text-[var(--primary-strong)] underline decoration-[rgba(23,104,95,0.34)] underline-offset-2"
+                            >
+                              {source}
+                            </a>
+                          ) : (
+                            <span className="break-words">{source}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             ))}
             {loading ? (
