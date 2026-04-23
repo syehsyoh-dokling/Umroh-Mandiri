@@ -98,3 +98,40 @@ https://muwahid-web-694458218270.asia-southeast2.run.app
 ```
 
 The deployed service reads `GEMINI_API_KEY` from Secret Manager secret `gemini-api-key`.
+
+## KRB search setup
+
+Local source folder:
+
+```text
+C:\Users\Saifuddin\Documents\Gemini\KRB
+```
+
+Cloud Storage bucket:
+
+```text
+gs://umrohmandiri-677a1-krb
+```
+
+Vertex AI Search data store:
+
+```text
+krb-pdfs
+```
+
+Vertex AI Search engine:
+
+```text
+krb-search
+```
+
+Cloud Run env vars for retrieval:
+
+```env
+VERTEX_SEARCH_PROJECT_ID=umrohmandiri-677a1
+VERTEX_SEARCH_LOCATION=global
+VERTEX_SEARCH_ENGINE_ID=krb-search
+VERTEX_SEARCH_SERVING_CONFIG=default_search
+```
+
+The assistant route `apps/web/app/api/muwahid/route.ts` now does a lightweight Vertex Search lookup first, then asks Gemini to answer using the retrieved context.
