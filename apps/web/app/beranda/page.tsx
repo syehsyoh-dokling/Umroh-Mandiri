@@ -24,6 +24,7 @@ import { BrandMark } from "@/components/site/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { getFeatureRoute } from "@/lib/feature-routes";
+import { useStoredAuthUser } from "@/lib/use-stored-auth-user";
 
 type AuthUser = {
   nama?: string;
@@ -97,6 +98,11 @@ function createPageCode(target: string) {
   return `${target}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function withFeatureParams(destination: string, target: string, pageCode: string) {
+  const separator = destination.includes("?") ? "&" : "?";
+  return `${destination}${separator}feature=${encodeURIComponent(target)}&page_code=${encodeURIComponent(pageCode)}`;
+}
+
 async function getIPandLocation(): Promise<GeoResult> {
   const providers = [
     {
@@ -150,22 +156,18 @@ async function getIPandLocation(): Promise<GeoResult> {
 
 export default function BerandaPage() {
   const router = useRouter();
-  const [user] = useState<AuthUser | null>(() => {
-    if (typeof window === "undefined") return null;
-
-    const userRaw = localStorage.getItem("auth_user");
-    if (!userRaw) return null;
-
-    try {
-      return JSON.parse(userRaw) as AuthUser;
-    } catch {
-      return null;
-    }
-  });
+  const user = useStoredAuthUser<AuthUser>();
   const [loginPrompt, setLoginPrompt] = useState<LoginPromptState>({ open: false });
   const [activeHeroMenu, setActiveHeroMenu] = useState<string>(heroMenus[0]?.label ?? "");
 
   useEffect(() => {
+    const accessToken = localStorage.getItem("access_token");
+    const requestedAction = new URL(window.location.href).searchParams.get("action");
+    if (accessToken && requestedAction === "login") {
+      router.replace("/menu");
+      return;
+    }
+
     const url = new URL(window.location.href);
     const pathnameMatch = window.location.pathname.match(/referal(\w+)/i);
     const ref = normalizeReferral(
@@ -188,7 +190,7 @@ export default function BerandaPage() {
         })
       );
     });
-  }, []);
+  }, [router]);
 
   const visitorName = useMemo(() => {
     const rawName = user?.nama?.trim();
@@ -196,17 +198,24 @@ export default function BerandaPage() {
     return "Saifuddin ST";
   }, [user?.nama]);
 
-  const greetingFontSize = useMemo(() => {
-    const nameLength = visitorName.length;
-    if (nameLength > 24) return "clamp(1.25rem, 2.35vw, 2rem)";
-    if (nameLength > 18) return "clamp(1.4rem, 2.7vw, 2.2rem)";
-    if (nameLength > 12) return "clamp(1.55rem, 3vw, 2.45rem)";
-    return "clamp(1.7rem, 3.25vw, 2.6rem)";
-  }, [visitorName]);
-
   const promptLogin = (target?: string, label?: string) => {
     const pageCode = target ? createPageCode(target) : createPageCode("login");
     if (label) setActiveHeroMenu(label);
+
+    const accessToken = localStorage.getItem("access_token");
+    if (accessToken) {
+      if (!target) {
+        router.push("/menu");
+        return;
+      }
+
+      const destination = getFeatureRoute(target, "/menu");
+      localStorage.setItem("selected_feature_label", label || target);
+      localStorage.setItem("selected_page_code", pageCode);
+      router.push(withFeatureParams(destination, target, pageCode));
+      return;
+    }
+
     setLoginPrompt({ open: true, target, label, pageCode });
   };
 
@@ -217,7 +226,7 @@ export default function BerandaPage() {
       localStorage.setItem("selected_page_code", loginPrompt.pageCode || "");
       localStorage.setItem(
         "redirect_after_login",
-        `${destination}?feature=${encodeURIComponent(loginPrompt.target)}&page_code=${encodeURIComponent(loginPrompt.pageCode || "")}`
+        withFeatureParams(destination, loginPrompt.target, loginPrompt.pageCode || "")
       );
     } else {
       localStorage.setItem("redirect_after_login", "/menu");
@@ -262,21 +271,18 @@ export default function BerandaPage() {
             <h1 className="post-auth-brand-title">
               MUWAHID
             </h1>
-            <p className="post-auth-brand-tagline">Asisten Umroh Digital</p>
+            <p className="post-auth-brand-tagline">
+              Asisten virtual yang siap membantu dan menjadikan umroh Anda semudah pulang kampung
+            </p>
           </div>
 
           <div className="post-auth-intro">
-            <h1
-              className="post-auth-intro-title"
-              style={{ fontSize: greetingFontSize }}
-            >
-              Selamat datang, {visitorName} <span className="inline-block translate-y-[-0.04em] text-[0.8em]">👋</span>
-            </h1>
-            <p className="post-auth-intro-subtitle">
-              Mari siapkan perjalanan umroh Anda
+            <p className="post-auth-intro-title">
+              Bapak/Ibu {visitorName}, Semoga Ibadah Umroh Anda
             </p>
+            <p className="post-auth-intro-subtitle">Mabrur dan diterima di sisi Allah SWT.</p>
 
-            <div className="mt-6 flex flex-wrap gap-4">
+            <div className="mt-3 flex flex-wrap gap-4">
               <Button
                 variant="secondary"
                 size="lg"

@@ -3,6 +3,8 @@
 import { Bot, Send, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 
+import { apiUrl } from "@/lib/config";
+
 type ChatMessage = {
   role: "assistant" | "user";
   text: string;
@@ -15,7 +17,17 @@ const starterMessages: ChatMessage[] = [
   },
 ];
 
-export function MuwahidAssistant() {
+export function MuwahidAssistant({
+  mode = "floating",
+  module = "general",
+  promptKey = "general",
+  context,
+}: {
+  mode?: "floating" | "embedded";
+  module?: string;
+  promptKey?: string;
+  context?: Record<string, unknown>;
+}) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(starterMessages);
@@ -30,10 +42,14 @@ export function MuwahidAssistant() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/muwahid", {
+      const response = await fetch(mode === "embedded" ? apiUrl("/assistant/ask") : "/api/muwahid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify(
+          mode === "embedded"
+            ? { message, module, prompt_key: promptKey, context }
+            : { message }
+        ),
       });
       const payload = (await response.json()) as { answer?: string };
       setMessages((current) => [
@@ -48,6 +64,69 @@ export function MuwahidAssistant() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (mode === "embedded") {
+    return (
+      <section className="rounded-[24px] border border-white/70 bg-[rgba(255,252,246,0.98)] p-5 shadow-[0_18px_42px_rgba(112,88,39,0.12)] sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(23,104,95,0.08)] text-[var(--primary)]">
+            <Bot className="h-6 w-6" />
+          </span>
+          <div>
+            <h2 className="font-[family-name:var(--font-display)] text-[1.9rem] text-[var(--foreground)]">
+              Tanya ke Asisten Virtual (MUWAHID)
+            </h2>
+            <p className="mt-1 text-sm text-[var(--muted-strong)]">Respon MUWAHID akan muncul di sini.</p>
+          </div>
+        </div>
+
+        <div className="mt-5 min-h-[130px] space-y-3 rounded-[22px] border border-[color:var(--line)] bg-white/82 px-4 py-4">
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}`}
+              className={`rounded-[18px] px-4 py-3 text-sm leading-6 ${
+                message.role === "user"
+                  ? "ml-auto max-w-[86%] bg-[var(--primary)] text-white"
+                  : "mr-auto max-w-[92%] bg-[rgba(23,104,95,0.08)] text-[var(--foreground)]"
+              }`}
+            >
+              {message.text}
+            </div>
+          ))}
+          {loading ? (
+            <div className="mr-auto max-w-[92%] rounded-[18px] bg-[rgba(23,104,95,0.08)] px-4 py-3 text-sm text-[var(--muted)]">
+              MUWAHID sedang menulis...
+            </div>
+          ) : null}
+        </div>
+
+        <form
+          className="mt-4 grid gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void sendMessage();
+          }}
+        >
+          <textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Contoh: Tolong evaluasi hotel yang saya pilih, bagaimana lokasi, akses bus, sarapan, dan kekurangannya?"
+            className="min-h-[112px] w-full rounded-[22px] border border-[color:var(--line)] bg-white/82 px-4 py-4 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--ring)]"
+          />
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={loading}
+              className="post-auth-action-button min-h-12 w-auto min-w-[120px] px-6"
+            >
+              <Send className="h-4 w-4" />
+              <span>{loading ? "Mengirim..." : "Kirim"}</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    );
   }
 
   return (

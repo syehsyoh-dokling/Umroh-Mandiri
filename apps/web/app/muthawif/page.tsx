@@ -108,7 +108,7 @@ export default function MuthawifPage() {
       backLabel="Kembali ke Kalkulator"
       showCalculatorCart
     >
-      <section className="-mt-14 grid gap-4 sm:-mt-16 lg:grid-cols-[minmax(0,1.45fr)_360px]">
+      <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_360px]">
         <div className="space-y-4">
           <Card className="rounded-[24px] p-5 sm:p-6">
             <CardTitle className="font-[family-name:var(--font-display)] text-[2rem]">Pilih Tanggal &amp; Lokasi Pertemuan</CardTitle>

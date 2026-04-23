@@ -194,6 +194,68 @@ def fetch_remote_json(base_url: str, params: dict[str, str | int | None]):
         raise HTTPException(status_code=502, detail=f"Gagal mengambil data legacy: {exc}")
 
 
+def local_hotels(city: str, stars: str | None = None, band: str | None = None, q: str | None = None, limit: int = 20):
+    star_values = [int(value) for value in str(stars or "").split(",") if value.strip().isdigit()]
+    where = ["(city = %s OR kota = %s)"]
+    params: list[str | int] = [city, city]
+
+    if star_values:
+        placeholders = ",".join(["%s"] * len(star_values))
+        where.append(f"stars IN ({placeholders})")
+        params.extend(star_values)
+
+    if band:
+        where.append("dist_band = %s")
+        params.append(band)
+
+    if q:
+        where.append("nama_hotel LIKE %s")
+        params.append(f"%{q}%")
+
+    params.append(limit)
+    query = f"""
+        SELECT
+          id,
+          nama_hotel,
+          COALESCE(city, kota) AS city,
+          stars AS bintang,
+          dist_band AS jarak_label,
+          dist_m,
+          alamat,
+          (COALESCE(bed_2, 0) + COALESCE(bed_3, 0) + COALESCE(bed_4, 0) + COALESCE(bed_5, 0) +
+           COALESCE(bed_6, 0) + COALESCE(bed_7, 0) + COALESCE(bed_8, 0)) AS total_beds
+        FROM hotel_umroh
+        WHERE {" AND ".join(where)}
+        ORDER BY
+          CASE WHEN dist_m IS NULL THEN 1 ELSE 0 END,
+          dist_m ASC,
+          nama_hotel ASC
+        LIMIT %s
+    """
+
+    try:
+        with get_mysql_connection(LEGACY_DB) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, tuple(params))
+                rows = cur.fetchall()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gagal mengambil data hotel lokal: {exc}")
+
+    return {
+        "success": True,
+        "source": "local-db",
+        "data": [
+            {
+                **row,
+                "beds_tersedia": str(row.get("total_beds") or "-"),
+                "harga_label": "Harga belum tersedia",
+                "price_idr": 0,
+            }
+            for row in rows
+        ],
+    }
+
+
 def post_remote_form_json(base_url: str, payload: dict[str, str | int | None]):
     clean_params = {key: value for key, value in payload.items() if value not in (None, "", [])}
     encoded = urlencode(clean_params).encode("utf-8")
@@ -230,16 +292,17 @@ def get_hotels(
     q: str | None = Query(default=None),
     limit: int = Query(default=20),
 ):
-    return fetch_remote_json(
-        HOTEL_ENDPOINT,
-        {
-            "city": city,
-            "stars": stars,
-            "band": band,
-            "q": q,
-            "limit": limit,
-        },
-    )
+    params = {
+        "city": city,
+        "stars": stars,
+        "band": band,
+        "q": q,
+        "limit": limit,
+    }
+    try:
+        return fetch_remote_json(HOTEL_ENDPOINT, params)
+    except HTTPException:
+        return local_hotels(city=city, stars=stars, band=band, q=q, limit=limit)
 
 
 @router.get("/tickets")

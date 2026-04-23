@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Hotel, MessageSquareMore, Search, Trash2 } from "lucide-react";
+import { Building2, FileQuestion, Hotel, ReceiptText, Search, Trash2 } from "lucide-react";
 
 import { ModuleShell } from "@/components/site/module-shell";
+import { MuwahidAssistant } from "@/components/site/muwahid-assistant";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,8 @@ import { Select } from "@/components/ui/select";
 import { apiUrl } from "@/lib/config";
 import { useCalculatorDraft } from "@/lib/umroh-calculator-state";
 import { formatRupiah, hotelBands } from "@/lib/travel-pricing";
+
+type HotelCity = "Makkah" | "Madinah";
 
 type HotelApiItem = {
   id?: number;
@@ -25,20 +28,47 @@ type HotelApiItem = {
   alamat?: string;
 };
 
+type HotelHistory = Record<HotelCity, HotelApiItem[]>;
+
+const emptyHotelHistory: HotelHistory = {
+  Makkah: [],
+  Madinah: [],
+};
+
+const hotelInfoActions = [
+  { label: "Daftar Hotel NUSUK", target: "hotel-nusuk", icon: Building2 },
+  { label: "Daftar Hotel Non-NUSUK", target: "hotel-non-nusuk", icon: FileQuestion },
+  { label: "BRN Fee", target: "brn-fee", icon: ReceiptText },
+];
+
+const hotelMandiriDescription =
+  "Informasi penting yang Bapak/Ibu perlu ketahui sebelum memesan hotel secara mandiri: setiap hotel yang dipesan akan diinput ke dalam sistem aplikasi pemerintah Arab Saudi (NUSUK), lalu diminta approval kepada pihak hotel sebelum visa disetujui. Secara umum ada dua kategori hotel, yaitu hotel yang sudah terdaftar di aplikasi NUSUK dan hotel yang belum terdaftar. Tidak semua hotel yang tampil di aplikasi pemesanan seperti tiket.com, Traveloka, Trip.com, dan sejenisnya sudah masuk dalam NUSUK. Bapak/Ibu masih bisa memesan hotel yang tidak masuk dalam NUSUK, tetapi biasanya provider penerbit visa atau muasasah akan meminta biaya tambahan yang dikenal sebagai BRN Fee. Klik tombol di bawah untuk info lebih lengkap.";
+
+function getCity(value: string | undefined, fallback: HotelCity): HotelCity {
+  return value === "Makkah" || value === "Madinah" ? value : fallback;
+}
+
+function normalizeHotelData(data: unknown): HotelApiItem[] {
+  if (!data || typeof data !== "object") return [];
+
+  const payload = data as { data?: unknown; hotels?: unknown; results?: unknown; rows?: unknown };
+  const rows = payload.data ?? payload.hotels ?? payload.results ?? payload.rows ?? [];
+  return Array.isArray(rows) ? (rows as HotelApiItem[]) : [];
+}
+
 export default function HotelPage() {
   const { draft, setDraft } = useCalculatorDraft();
 
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
-  const [city, setCity] = useState<"Madinah" | "Makkah">("Madinah");
+  const [city, setCity] = useState<HotelCity>("Madinah");
   const [checkIn, setCheckIn] = useState(draft.journey.departDate || today);
   const [checkOut, setCheckOut] = useState(draft.journey.returnDate || tomorrow);
   const [starFilters, setStarFilters] = useState<string[]>([""]);
   const [band, setBand] = useState("");
   const [results, setResults] = useState<HotelApiItem[]>([]);
-  const [assistantQuestion, setAssistantQuestion] = useState("");
-  const [assistantAnswer, setAssistantAnswer] = useState("");
+  const [hotelHistory, setHotelHistory] = useState<HotelHistory>(emptyHotelHistory);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -55,6 +85,28 @@ export default function HotelPage() {
   );
 
   const starList = starFilters.filter(Boolean);
+  const historyCount = hotelHistory.Makkah.length + hotelHistory.Madinah.length;
+
+  const getHotelKey = (hotel: HotelApiItem) => `${hotel.id || hotel.nama_hotel || "hotel"}-${getCity(hotel.city, city)}`;
+
+  const mergeHotelHistory = (items: HotelApiItem[]) => {
+    if (!items.length) return;
+
+    setHotelHistory((current) => {
+      const currentCityItems = current[city] ?? [];
+      const byKey = new Map(currentCityItems.map((item) => [getHotelKey(item), item]));
+
+      items.forEach((item) => {
+        const normalizedItem = { ...item, city: getCity(item.city, city) };
+        byKey.set(getHotelKey(normalizedItem), normalizedItem);
+      });
+
+      return {
+        ...current,
+        [city]: Array.from(byKey.values()).slice(0, 12),
+      };
+    });
+  };
 
   const searchHotels = async () => {
     setLoading(true);
@@ -78,7 +130,9 @@ export default function HotelPage() {
         return;
       }
 
-      setResults(Array.isArray(data.data) ? data.data : []);
+      const hotelRows = normalizeHotelData(data);
+      setResults(hotelRows);
+      mergeHotelHistory(hotelRows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Tidak dapat terhubung ke layanan hotel.");
       setResults([]);
@@ -88,14 +142,15 @@ export default function HotelPage() {
   };
 
   const saveHotel = (hotel: HotelApiItem) => {
+    const selectedCity = getCity(hotel.city, city);
     const nightlyPrice = Number(hotel.price_idr || 0);
 
     setDraft((current) => ({
       ...current,
       hotels: [
-        ...current.hotels.filter((item) => item.city !== city),
+        ...current.hotels.filter((item) => item.city !== selectedCity),
         {
-          city,
+          city: selectedCity,
           hotelName: hotel.nama_hotel || "Hotel tanpa nama",
           stars: Number(hotel.bintang || 0) || undefined,
           radiusLabel: hotel.jarak_label || "",
@@ -108,20 +163,55 @@ export default function HotelPage() {
         },
       ],
     }));
+
+    setResults((current) => current.filter((item) => getHotelKey(item) !== getHotelKey(hotel)));
+    setHotelHistory((current) => ({
+      ...current,
+      [selectedCity]: current[selectedCity].filter((item) => getHotelKey(item) !== getHotelKey(hotel)),
+    }));
   };
 
   const resetFilters = () => {
     setStarFilters([""]);
     setBand("");
     setResults([]);
-    setAssistantAnswer("");
-    setAssistantQuestion("");
   };
 
-  const askAssistant = () => {
-    if (!assistantQuestion.trim()) return;
-    setAssistantAnswer(
-      `Pertanyaan Anda tersimpan: "${assistantQuestion}". Area ini saya pertahankan mengikuti legacy sebagai ruang bantu evaluasi hotel, dan langkah berikutnya saya akan sambungkan ke jawaban dinamis per hotel yang dipilih.`
+  const renderHistoryList = (historyCity: HotelCity) => {
+    const items = hotelHistory[historyCity];
+    if (!items.length) return null;
+
+    return (
+      <div className="mt-5">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--primary)]">Hotel {historyCity}</p>
+        <div className="mt-3 space-y-3">
+          {items.map((hotel, index) => {
+            const nightlyPrice = Number(hotel.price_idr || 0);
+            return (
+              <div
+                key={`history-${historyCity}-${getHotelKey(hotel)}-${index}`}
+                className="rounded-[20px] border border-[rgba(196,170,126,0.16)] bg-white/78 p-4"
+              >
+                <p className="font-semibold text-[var(--foreground)]">
+                  {index + 1}. {hotel.nama_hotel || "Hotel tanpa nama"}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-[var(--muted-strong)]">
+                  Harga: {nightlyPrice ? formatRupiah(nightlyPrice) : hotel.harga_label || "Harga belum tersedia"} | Jarak ke masjid:{" "}
+                  {hotel.jarak_label || "Belum tersedia"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => saveHotel({ ...hotel, city: historyCity })}
+                  className="post-auth-primary-cta mt-3 h-10 text-sm"
+                >
+                  <span>Pilih</span>
+                  <span aria-hidden>-&gt;</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
@@ -129,12 +219,13 @@ export default function HotelPage() {
     <ModuleShell
       eyebrow="Komponen Kalkulator"
       title="Pesan Hotel Mandiri"
-      description="Field legacy dipertahankan: pilih kota, check-in/check-out, kelas hotel, tambah kelas lain, radius ke masjid, hasil hotel, dan area tanya ke asisten."
+      description={hotelMandiriDescription}
+      actions={hotelInfoActions}
       backHref="/kalkulator"
       backLabel="Kembali ke Kalkulator"
       showCalculatorCart
     >
-      <section className="-mt-14 grid gap-4 sm:-mt-16 lg:grid-cols-[minmax(0,1.45fr)_360px]">
+      <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_360px]">
         <div className="space-y-4">
           <Card className="rounded-[24px] p-5 sm:p-6">
             <div className="text-center">
@@ -169,8 +260,11 @@ export default function HotelPage() {
                 {starFilters.map((value, index) => (
                   <div key={`star-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_44px]">
                     <div className="space-y-2">
-                      {index === 0 ? <label className="text-sm font-semibold text-[var(--muted-strong)]">Pilih Kelas Hotel (Bintang)</label> : null}
+                      {index === 0 ? (
+                        <label className="text-sm font-semibold text-[var(--muted-strong)]">Pilih Kelas Hotel (Bintang)</label>
+                      ) : null}
                       <Select
+                        className="h-12 whitespace-nowrap py-0 leading-none"
                         value={value}
                         onChange={(event) =>
                           setStarFilters((current) => current.map((item, currentIndex) => (currentIndex === index ? event.target.value : item)))
@@ -235,7 +329,7 @@ export default function HotelPage() {
                 return (
                   <Card key={`${hotel.id}-${hotel.nama_hotel}`} className="rounded-[22px] p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">
-                      {hotel.city || city} • {hotel.bintang || "-"} bintang
+                      {hotel.city || city} | {hotel.bintang || "-"} bintang
                     </p>
                     <CardTitle className="mt-3 font-[family-name:var(--font-display)] text-[1.7rem]">
                       {hotel.nama_hotel || "Hotel tanpa nama"}
@@ -258,36 +352,20 @@ export default function HotelPage() {
             </div>
           </Card>
 
-          <Card className="rounded-[24px] p-5 sm:p-6">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(214,177,110,0.16)] text-[var(--primary)]">
-                <MessageSquareMore className="h-5 w-5" />
-              </span>
-              <div>
-                <CardTitle className="font-[family-name:var(--font-display)] text-[1.8rem]">Tanya ke Asisten Virtual (MUWAHID)</CardTitle>
-                <CardDescription className="mt-1 text-sm text-[var(--muted-strong)]">
-                  Respon MUWAHID akan muncul di sini.
-                </CardDescription>
-              </div>
-            </div>
-
-            <textarea
-              value={assistantAnswer}
-              readOnly
-              className="mt-4 min-h-[120px] w-full rounded-[22px] border border-[color:var(--line)] bg-white/82 px-4 py-4 text-sm text-[var(--foreground)] outline-none"
-            />
-            <textarea
-              value={assistantQuestion}
-              onChange={(event) => setAssistantQuestion(event.target.value)}
-              placeholder="Contoh: Tolong evaluasi hotel yang saya pilih, bagaimana lokasi, akses bus, sarapan, dan kekurangannya?"
-              className="mt-3 min-h-[92px] w-full rounded-[22px] border border-[color:var(--line)] bg-white/82 px-4 py-4 text-sm text-[var(--foreground)] outline-none"
-            />
-            <div className="mt-4 flex justify-end">
-              <Button variant="secondary" onClick={askAssistant}>
-                Kirim
-              </Button>
-            </div>
-          </Card>
+          <MuwahidAssistant
+            mode="embedded"
+            module="hotel"
+            promptKey="hotel_evaluation"
+            context={{
+              city,
+              check_in: checkIn,
+              check_out: checkOut,
+              nights,
+              selected_hotel: activeHotel,
+              star_filters: starList,
+              radius_to_mosque: band,
+            }}
+          />
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
@@ -296,14 +374,26 @@ export default function HotelPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(214,177,110,0.16)] text-[var(--primary)]">
                 <Hotel className="h-5 w-5" />
               </span>
-              <CardTitle className="font-[family-name:var(--font-display)] text-[1.8rem]">Hotel Aktif</CardTitle>
+              <CardTitle className="font-[family-name:var(--font-display)] text-[1.8rem]">Hotel Hasil Pencarian</CardTitle>
             </div>
-            <p className="mt-4 text-sm font-semibold text-[var(--foreground)]">{activeHotel?.hotelName || `Belum pilih hotel ${city}`}</p>
-            <p className="mt-2 text-sm leading-7 text-[var(--muted-strong)]">
-              {activeHotel
-                ? `${activeHotel.nights} malam • ${activeHotel.radiusLabel || "-"} • ${formatRupiah(activeHotel.totalPrice)}`
-                : "Pilih salah satu hotel dari hasil pencarian untuk masuk ke kalkulator."}
-            </p>
+            {historyCount ? (
+              <p className="mt-3 text-sm leading-7 text-[var(--muted-strong)]">
+                Berikut riwayat hasil pencarian yang belum dimasukkan ke kalkulator. Klik tombol Pilih pada hotel yang sesuai, lalu hotel
+                tersebut akan masuk ke kalkulator dan hilang dari daftar ini agar tidak dobel.
+              </p>
+            ) : (
+              <>
+                <p className="mt-4 text-sm font-semibold text-[var(--foreground)]">
+                  {activeHotel?.hotelName || `Belum pilih hotel ${city}`}
+                </p>
+                <p className="mt-2 text-sm leading-7 text-[var(--muted-strong)]">
+                  Pilih kota Madinah atau Makkah, atur tanggal, kelas hotel, dan radius ke masjid. Setelah klik Cari Hotel, pilih salah
+                  satu hotel dari hasil pencarian agar masuk ke kalkulator.
+                </p>
+              </>
+            )}
+            {renderHistoryList("Madinah")}
+            {renderHistoryList("Makkah")}
           </Card>
         </div>
       </section>

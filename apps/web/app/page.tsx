@@ -141,7 +141,7 @@ export default function Home() {
             <h1 className="mt-1 font-[family-name:Arial,Helvetica,sans-serif] text-5xl font-black tracking-[0.06em] text-white drop-shadow-[0_8px_24px_rgba(60,37,8,0.35)] sm:text-[4.3rem]">
               {content.hero.brand}
             </h1>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-white/84 sm:text-base sm:leading-7">
+            <p className="mx-auto mt-3 max-w-2xl rounded-full bg-[rgba(10,35,31,0.34)] px-5 py-2 text-sm font-bold leading-6 text-[#fff4de] shadow-[0_10px_30px_rgba(0,0,0,0.18)] backdrop-blur-[3px] drop-shadow-[0_2px_14px_rgba(0,0,0,0.65)] sm:text-base sm:leading-7">
               {content.hero.description}
             </p>
           </motion.div>

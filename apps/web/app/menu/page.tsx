@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/site/brand-mark";
+import { PostAuthFooter } from "@/components/site/post-auth-footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { apiUrl } from "@/lib/config";
@@ -278,7 +279,6 @@ export default function MenuPage() {
   const [entryPromptOpen, setEntryPromptOpen] = useState(false);
   const [profilePromptOpen, setProfilePromptOpen] = useState(false);
   const [showFocusedModule, setShowFocusedModule] = useState(false);
-  const [referralText, setReferralText] = useState("0000");
   const [pageFeature, setPageFeature] = useState("");
   const moduleSectionRef = useRef<HTMLElement | null>(null);
 
@@ -304,7 +304,6 @@ export default function MenuPage() {
 
     const loadProfile = async () => {
       try {
-        setReferralText(localStorage.getItem("referral") || "0000");
         const res = await fetch(apiUrl("/users/me"), {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -337,8 +336,13 @@ export default function MenuPage() {
           localStorage.setItem("selected_page_code", requestedPageCode);
         }
 
-        if (requestedFeature) {
+        const pendingPrompt = localStorage.getItem("post_login_prompt_pending");
+        const shouldShowEntryPrompt =
+          Boolean(requestedFeature) && Boolean(pendingPrompt) && (!requestedPageCode || pendingPrompt === requestedPageCode || pendingPrompt === "menu");
+
+        if (shouldShowEntryPrompt) {
           setEntryPromptOpen(true);
+          localStorage.removeItem("post_login_prompt_pending");
         }
 
         if (!isRegionComplete(profile)) {
@@ -414,7 +418,7 @@ export default function MenuPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1360px] px-4 py-5 sm:px-6 lg:px-8">
+    <main className="post-auth-shell">
       <LoginDecisionModal
         open={entryPromptOpen}
         title="Selamat datang di dashboard MUWAHID"
@@ -435,65 +439,83 @@ export default function MenuPage() {
         onCancel={() => setProfilePromptOpen(false)}
       />
 
-      <section className="relative overflow-hidden rounded-[34px] border border-white/50 shadow-[var(--shadow-strong)]">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/assets/hero-makkah-kaabah.jpg')" }}
-          aria-hidden
-        />
-        <div
-          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,62,57,0.78)_0%,rgba(136,93,31,0.42)_38%,rgba(246,239,226,0.28)_76%,rgba(246,239,226,0.08)_100%)]"
-          aria-hidden
-        />
-        <div
-          className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.15),transparent_26%),linear-gradient(180deg,transparent_0%,rgba(255,248,238,0.34)_100%)]"
-          aria-hidden
-        />
+      <section className="post-auth-hero">
+        <div className="post-auth-hero-fade" aria-hidden />
 
-        <div className="relative z-10 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="post-auth-hero-inner">
+          <div className="post-auth-topbar">
             <Link href="/beranda">
-              <Button variant="ghost" className="bg-white/18 text-white hover:bg-white/24 hover:text-white">
+              <Button variant="ghost" className="h-10 min-w-[118px] rounded-full bg-white/18 px-4 text-sm text-white hover:bg-white/24 hover:text-white">
                 Kembali
               </Button>
             </Link>
-            <div className="mx-auto flex flex-col items-center text-center">
-              <BrandMark className="h-16 w-16 rounded-[20px] sm:h-20 sm:w-20" />
-              <h1 className="mt-4 text-center font-[family-name:Arial,Helvetica,sans-serif] text-3xl font-black tracking-[0.08em] text-white sm:text-5xl">
-                MUWAHID
-              </h1>
-              <p className="mt-1 text-sm font-medium text-white/88 sm:text-lg">Asisten Umroh Digital</p>
+
+            <div className="flex justify-center" />
+
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={logout} className="h-10 w-[118px] rounded-full px-4 text-sm">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </div>
-            <Button variant="secondary" onClick={logout} className="min-w-[120px]">
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
           </div>
 
-          <div className="mx-auto mt-6 max-w-[860px] text-center text-white">
-            <p className="text-xl font-semibold leading-tight sm:text-3xl">
-              Selamat datang, {user?.nama || "Jamaah MUWAHID"}.
-            </p>
-            <p className="mx-auto mt-3 max-w-[820px] text-sm leading-7 text-white/92 sm:text-base sm:leading-8">
-              Semua kebutuhan umroh kini hadir dalam satu dashboard, mulai dari persiapan keberangkatan, paket travel,
-              panduan ibadah, jemputan bandara, hingga kebutuhan selama di Makkah dan Madinah.
-            </p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <div className="rounded-full border border-white/25 bg-white/14 px-4 py-2 text-sm text-white/92">
-                Nama akun: <span className="font-semibold text-white">{user?.nama || "-"}</span>
-              </div>
-              <div className="rounded-full border border-white/25 bg-white/14 px-4 py-2 text-sm text-white/92">
-                Asal wilayah: <span className="font-semibold text-white">{regionText || "Belum dilengkapi"}</span>
-              </div>
-              <div className="rounded-full border border-white/25 bg-white/14 px-4 py-2 text-sm text-white/92">
-                Referral: <span className="font-semibold text-white">{user?.referral_code || referralText}</span>
-              </div>
+          <div className="post-auth-brand">
+            <div className="post-auth-brand-mark">
+              <BrandMark className="h-12 w-12 sm:h-14 sm:w-14" />
             </div>
+            <h1 className="post-auth-brand-title">MUWAHID</h1>
+            <p className="post-auth-brand-tagline">
+              Asisten virtual yang siap membantu dan menjadikan umroh Anda semudah pulang kampung
+            </p>
+          </div>
+
+          <div className="post-auth-intro">
+            <p className="post-auth-intro-title">
+              Bapak/Ibu {user?.nama || "Jamaah MUWAHID"}, Semoga Ibadah Umroh Anda
+            </p>
+            <p className="post-auth-intro-subtitle">Mabrur dan diterima di sisi Allah SWT.</p>
           </div>
         </div>
       </section>
 
-      <section ref={moduleSectionRef} className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="post-auth-surface">
+        <Card className="post-auth-card p-3">
+          <div className="px-2 pb-4 pt-1 text-center">
+            <p className="dashboard-chip-label">Dashboard / Menu Utama</p>
+            <p className="dashboard-chip-copy">
+              Untuk mulai menjelajah, pilih salah satu menu sesuai dengan kebutuhan Anda, tapi sangat kami sarankan agar mendapatkan pemahaman yang utuh mulailah dengan membaca persyaratan pada menu &ldquo;Persiapan Keberangkatan&rdquo; baru dilanjutkan dengan menu yang lainnya.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              { label: "Persiapan Keberangkatan", target: "persiapan", icon: ShieldCheck },
+              { label: "Cari Tiket", target: "tiket", icon: Ticket },
+              { label: "Urus Visa", target: "visa", icon: FileText },
+            ].map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => handleMenuOpen(item.target)}
+                  className={`hero-menu-button hero-menu-tone-${index} hover:brightness-[1.02]`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/18 text-white">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm font-semibold text-white">{item.label}</span>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-white/90" />
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      <section ref={moduleSectionRef} className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card className="rounded-[32px] p-5 sm:p-6">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">Fokus saat ini</p>
           <div className="mt-4 rounded-[26px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,254,250,0.92),rgba(255,248,235,0.84))] p-5">
@@ -559,13 +581,13 @@ export default function MenuPage() {
                     className={`group flex w-full items-center justify-between gap-4 rounded-[20px] border px-4 py-3 text-left transition duration-200 ${
                       active
                         ? "border-transparent bg-[linear-gradient(90deg,#f0b33f,#e08f27)] text-white shadow-[0_16px_28px_rgba(219,145,43,0.22)]"
-                        : `border-[color:var(--line)] bg-[linear-gradient(90deg,rgba(255,252,246,0.96),rgba(255,247,231,0.9))] hover:-translate-y-0.5 ${columnIndex === 1 ? "hover:border-[rgba(23,104,95,0.18)]" : "hover:border-[rgba(223,160,58,0.25)]"}`
+                        : "border-[color:var(--line)] bg-[linear-gradient(90deg,rgba(255,252,246,0.96),rgba(255,247,231,0.9))] hover:-translate-y-0.5 hover:border-[rgba(223,160,58,0.25)]"
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${
-                          active ? "from-white/24 to-white/10 text-white" : item.accent
+                          active ? "from-white/24 to-white/10 text-white" : "from-[#f2b74c] to-[#dc8f2b] text-white"
                         }`}
                       >
                         <Icon className="h-5 w-5" />
@@ -591,23 +613,14 @@ export default function MenuPage() {
       <section className="mt-6 pb-10">
         <Card className="rounded-[32px] p-6 text-center sm:p-8">
           <CardTitle className="font-[family-name:var(--font-display)] text-4xl">
-            Dashboard siap dipakai untuk langkah berikutnya
+            Penafian (Disclaimer)
           </CardTitle>
           <CardDescription className="mx-auto mt-3 max-w-[760px] text-base leading-8 text-[var(--muted-strong)]">
-            Setelah ini kita bisa lanjut memetakan setiap tombol ke halaman modul spesifik satu per satu, sambil tetap
-            mempertahankan referral, IP device, dan page code yang sudah tersimpan.
+            Website ini bukan milik travel umroh, tapi milik Yayasan Bani Saifuddin Indonesia Maju (Banisa Maju) yang diberi nama MUWAHID dan didedikasikan untuk membantu para jamaah dan calon jamaah umroh asal Indonesia agar bisa melakukan dan mengelola perjalanan umroh secara mandiri. MUWAHID menyediakan berbagai menu untuk berbagai tingkatan keperluan misalnya bergabung dengan komunitas, informasi pra keberangkatan, persiapan administrasi, panduan keberangkatan, panduan ibadah, penerjemah digital dan layanan bimbingan serta diskusi online, juga berbagai menu pendukung lainnya.
           </CardDescription>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link href="/beranda">
-              <Button variant="ghost">Kembali ke beranda</Button>
-            </Link>
-            <Button variant="secondary" onClick={logout}>
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
         </Card>
       </section>
+      <PostAuthFooter />
     </main>
   );
 }
